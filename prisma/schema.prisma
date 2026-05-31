@@ -1,0 +1,597 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── USERS ────────────────────────────────────────────────────────────────────
+
+model User {
+  id              String    @id @default(uuid())
+  supabaseId      String    @unique @map("supabase_id")
+  phone           String    @unique
+  name            String?
+  avatarUrl       String?   @map("avatar_url")
+  city            String?
+  colony          String?
+  dateOfBirth     DateTime? @map("date_of_birth")
+  isGroundOwner   Boolean   @default(false) @map("is_ground_owner")
+  isMentor        Boolean   @default(false) @map("is_mentor")
+  mentorRate      Int?      @map("mentor_rate")
+  language        String    @default("en")
+  fcmToken        String?   @map("fcm_token")
+  trustScore      Float     @default(5.0) @map("trust_score")
+  trustMatchCount Int       @default(0) @map("trust_match_count")
+  noShowCount     Int       @default(0) @map("no_show_count")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  roles                PlayerRole[]
+  grounds              Ground[]
+  bookings             Booking[]
+  matchPlayers         MatchPlayer[]
+  captainedMatches     Match[]            @relation("MatchCaptain")
+  receivedApplications MatchApplication[] @relation("ApplicationTarget")
+  sentApplications     MatchApplication[] @relation("ApplicationSender")
+  reviews              GroundReview[]
+  badgesEarned         PlayerBadge[]
+  leaderboardEntries   LeaderboardEntry[]
+  checkIns             MatchCheckIn[]
+  paymentsSent         Payment[]          @relation("PaymentSender")
+  paymentsReceived     Payment[]          @relation("PaymentReceiver")
+  mentorSessionsGiven  MentorSession[]    @relation("MentorSessions")
+  mentorSessionsBooked MentorSession[]    @relation("PlayerSessions")
+  notifications        Notification[]
+
+  @@map("users")
+}
+
+model PlayerRole {
+  id        String  @id @default(uuid())
+  userId    String  @map("user_id")
+  role      Role
+  isPrimary Boolean @default(false) @map("is_primary")
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("player_roles")
+}
+
+enum Role {
+  OPENER
+  MIDDLE_ORDER
+  LOWER_ORDER
+  WICKET_KEEPER
+  FAST_BOWLER
+  MEDIUM_PACER
+  SPINNER
+  ALLROUNDER
+}
+
+// ─── GROUNDS ──────────────────────────────────────────────────────────────────
+
+model Ground {
+  id               String    @id @default(uuid())
+  ownerId          String    @map("owner_id")
+  name             String
+  description      String?
+  addressLine      String    @map("address_line")
+  city             String
+  colony           String?
+  state            String
+  pincode          String
+  latitude         Float
+  longitude        Float
+  pitchType        PitchType @map("pitch_type")
+  hasLighting      Boolean   @default(false) @map("has_lighting")
+  hasNets          Boolean   @default(false) @map("has_nets")
+  hasParking       Boolean   @default(false) @map("has_parking")
+  hasChangingRoom  Boolean   @default(false) @map("has_changing_room")
+  hasDrinkingWater Boolean   @default(false) @map("has_drinking_water")
+  capacityPlayers  Int       @default(22) @map("capacity_players")
+  pricePerSlot     Int       @map("price_per_slot")
+  slotDuration     Int       @default(120) @map("slot_duration")
+  openTime         String    @default("06:00") @map("open_time")
+  closeTime        String    @default("22:00") @map("close_time")
+  isActive         Boolean   @default(true) @map("is_active")
+  isVerified       Boolean   @default(false) @map("is_verified")
+  avgRating        Float     @default(0) @map("avg_rating")
+  reviewCount      Int       @default(0) @map("review_count")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  owner            User              @relation(fields: [ownerId], references: [id])
+  photos           GroundPhoto[]
+  slots            Slot[]
+  bookings         Booking[]
+  reviews          GroundReview[]
+  equipmentRentals EquipmentRental[]
+  blockedDates     BlockedDate[]
+
+  @@map("grounds")
+}
+
+enum PitchType {
+  TURF
+  CONCRETE
+  MATTING
+  BOX
+}
+
+model GroundPhoto {
+  id        String  @id @default(uuid())
+  groundId  String  @map("ground_id")
+  url       String
+  isPrimary Boolean @default(false) @map("is_primary")
+  order     Int     @default(0)
+  ground    Ground  @relation(fields: [groundId], references: [id], onDelete: Cascade)
+
+  @@map("ground_photos")
+}
+
+model Slot {
+  id        String    @id @default(uuid())
+  groundId  String    @map("ground_id")
+  startTime String    @map("start_time")
+  endTime   String    @map("end_time")
+  isActive  Boolean   @default(true) @map("is_active")
+  ground    Ground    @relation(fields: [groundId], references: [id], onDelete: Cascade)
+  bookings  Booking[]
+
+  @@map("slots")
+}
+
+model BlockedDate {
+  id       String   @id @default(uuid())
+  groundId String   @map("ground_id")
+  date     DateTime
+  reason   String?
+  ground   Ground   @relation(fields: [groundId], references: [id], onDelete: Cascade)
+
+  @@map("blocked_dates")
+}
+
+model EquipmentRental {
+  id          String  @id @default(uuid())
+  groundId    String  @map("ground_id")
+  name        String
+  pricePerDay Int     @map("price_per_day")
+  quantity    Int     @default(1)
+  isAvailable Boolean @default(true) @map("is_available")
+  ground      Ground  @relation(fields: [groundId], references: [id], onDelete: Cascade)
+
+  @@map("equipment_rentals")
+}
+
+model GroundReview {
+  id        String   @id @default(uuid())
+  groundId  String   @map("ground_id")
+  userId    String   @map("user_id")
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now()) @map("created_at")
+  ground    Ground   @relation(fields: [groundId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([groundId, userId])
+  @@map("ground_reviews")
+}
+
+// ─── BOOKINGS ─────────────────────────────────────────────────────────────────
+
+model Booking {
+  id                 String        @id @default(uuid())
+  groundId           String        @map("ground_id")
+  slotId             String        @map("slot_id")
+  userId             String        @map("user_id")
+  matchId            String?       @unique @map("match_id")
+  date               DateTime
+  startTime          String        @map("start_time")
+  endTime            String        @map("end_time")
+  format             MatchFormat?
+  playersExpected    Int?          @map("players_expected")
+  baseAmount         Int           @map("base_amount")
+  rentalAmount       Int           @default(0) @map("rental_amount")
+  platformFee        Int           @map("platform_fee")
+  totalAmount        Int           @map("total_amount")
+  status             BookingStatus @default(PENDING)
+  razorpayOrderId    String?       @unique @map("razorpay_order_id")
+  razorpayPaymentId  String?       @unique @map("razorpay_payment_id")
+  qrCode             String?       @map("qr_code")
+  checkedInAt        DateTime?     @map("checked_in_at")
+  cancelledAt        DateTime?     @map("cancelled_at")
+  cancellationReason String?       @map("cancellation_reason")
+  refundAmount       Int?          @map("refund_amount")
+  refundId           String?       @map("refund_id")
+  weatherAlertSent   Boolean       @default(false) @map("weather_alert_sent")
+  createdAt          DateTime      @default(now()) @map("created_at")
+
+  ground      Ground          @relation(fields: [groundId], references: [id])
+  slot        Slot            @relation(fields: [slotId], references: [id])
+  user        User            @relation(fields: [userId], references: [id])
+  match       Match?          @relation(fields: [matchId], references: [id])
+  rentedItems BookingRental[]
+
+  @@map("bookings")
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum MatchFormat {
+  T10
+  T20
+  ODI
+  TEST
+  PRACTICE
+}
+
+model BookingRental {
+  id                String  @id @default(uuid())
+  bookingId         String  @map("booking_id")
+  equipmentRentalId String  @map("equipment_rental_id")
+  quantity          Int
+  totalPrice        Int     @map("total_price")
+  booking           Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("booking_rentals")
+}
+
+// ─── MATCHES ──────────────────────────────────────────────────────────────────
+
+model Match {
+  id               String      @id @default(uuid())
+  captainId        String      @map("captain_id")
+  groundId         String?     @map("ground_id")
+  format           MatchFormat
+  date             DateTime
+  city             String
+  colony           String?
+  skillLevel       SkillLevel  @map("skill_level")
+  maxPlayers       Int         @default(11) @map("max_players")
+  description      String?
+  type             MatchType
+  status           MatchStatus @default(OPEN)
+  challengedTeamId String?     @map("challenged_team_id")
+  isPublic         Boolean     @default(true) @map("is_public")
+  publicScorecardUrl String?   @map("public_scorecard_url")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  captain      User               @relation("MatchCaptain", fields: [captainId], references: [id])
+  booking      Booking?
+  players      MatchPlayer[]
+  applications MatchApplication[]
+  rolesNeeded  MatchRoleNeeded[]
+  innings      Innings[]
+  checkIns     MatchCheckIn[]
+  result       MatchResult?
+
+  @@map("matches")
+}
+
+enum MatchType {
+  TEAM_GAP
+  CHALLENGE
+  PRACTICE
+}
+
+enum MatchStatus {
+  OPEN
+  FULL
+  CONFIRMED
+  LIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum SkillLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  OPEN
+}
+
+model MatchRoleNeeded {
+  id      String @id @default(uuid())
+  matchId String @map("match_id")
+  role    Role
+  count   Int    @default(1)
+  filled  Int    @default(0)
+  match   Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@map("match_roles_needed")
+}
+
+model MatchPlayer {
+  id            String        @id @default(uuid())
+  matchId       String        @map("match_id")
+  userId        String        @map("user_id")
+  role          Role?
+  teamNumber    Int           @default(1) @map("team_number")
+  isCaptain     Boolean       @default(false) @map("is_captain")
+  paymentStatus PaymentStatus @default(PENDING) @map("payment_status")
+  joinedAt      DateTime      @default(now()) @map("joined_at")
+  match         Match         @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id])
+
+  @@unique([matchId, userId])
+  @@map("match_players")
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  WAIVED
+  REFUNDED
+}
+
+model MatchApplication {
+  id          String            @id @default(uuid())
+  matchId     String            @map("match_id")
+  applicantId String            @map("applicant_id")
+  captainId   String            @map("captain_id")
+  role        Role?
+  message     String?
+  status      ApplicationStatus @default(PENDING)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  match       Match             @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  applicant   User              @relation("ApplicationSender", fields: [applicantId], references: [id])
+  captain     User              @relation("ApplicationTarget", fields: [captainId], references: [id])
+
+  @@map("match_applications")
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  WITHDRAWN
+}
+
+model MatchCheckIn {
+  id        String   @id @default(uuid())
+  matchId   String   @map("match_id")
+  userId    String   @map("user_id")
+  checkedAt DateTime @default(now()) @map("checked_at")
+  latitude  Float?
+  longitude Float?
+  match     Match    @relation(fields: [matchId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([matchId, userId])
+  @@map("match_check_ins")
+}
+
+// ─── SCORING ──────────────────────────────────────────────────────────────────
+
+model Innings {
+  id            String     @id @default(uuid())
+  matchId       String     @map("match_id")
+  inningsNumber Int        @map("innings_number")
+  battingTeam   Int        @map("batting_team")
+  totalRuns     Int        @default(0) @map("total_runs")
+  totalWickets  Int        @default(0) @map("total_wickets")
+  totalOvers    Float      @default(0) @map("total_overs")
+  extras        Int        @default(0)
+  isCompleted   Boolean    @default(false) @map("is_completed")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  match         Match      @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  deliveries    Delivery[]
+
+  @@unique([matchId, inningsNumber])
+  @@map("innings")
+}
+
+model Delivery {
+  id                String         @id @default(uuid())
+  inningsId         String         @map("innings_id")
+  overNumber        Int            @map("over_number")
+  ballNumber        Int            @map("ball_number")
+  batsmanId         String         @map("batsman_id")
+  bowlerId          String         @map("bowler_id")
+  runs              Int            @default(0)
+  isWicket          Boolean        @default(false) @map("is_wicket")
+  dismissalType     DismissalType? @map("dismissal_type")
+  dismissedPlayerId String?        @map("dismissed_player_id")
+  fielderId         String?        @map("fielder_id")
+  extras            Int            @default(0)
+  extraType         ExtraType?     @map("extra_type")
+  isLegal           Boolean        @default(true) @map("is_legal")
+  commentary        String?
+  createdAt         DateTime       @default(now()) @map("created_at")
+  innings           Innings        @relation(fields: [inningsId], references: [id], onDelete: Cascade)
+
+  @@map("deliveries")
+}
+
+enum DismissalType {
+  BOWLED
+  CAUGHT
+  LBW
+  RUN_OUT
+  STUMPED
+  HIT_WICKET
+  HANDLED_BALL
+  OBSTRUCTING_FIELD
+}
+
+enum ExtraType {
+  WIDE
+  NO_BALL
+  LEG_BYE
+  BYE
+  PENALTY
+}
+
+model MatchResult {
+  id            String   @id @default(uuid())
+  matchId       String   @unique @map("match_id")
+  winnerTeam    Int?     @map("winner_team")
+  resultType    String   @map("result_type")
+  margin        Int?
+  marginType    String?  @map("margin_type")
+  playerOfMatch String?  @map("player_of_match")
+  summary       String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  match         Match    @relation(fields: [matchId], references: [id])
+
+  @@map("match_results")
+}
+
+// ─── PAYMENTS ─────────────────────────────────────────────────────────────────
+
+model Payment {
+  id                String        @id @default(uuid())
+  senderId          String?       @map("sender_id")
+  receiverId        String?       @map("receiver_id")
+  bookingId         String?       @map("booking_id")
+  amount            Int
+  type              PaymentType
+  status            PaymentStatus
+  razorpayOrderId   String?       @unique @map("razorpay_order_id")
+  razorpayPaymentId String?       @unique @map("razorpay_payment_id")
+  razorpayLinkId    String?       @unique @map("razorpay_link_id")
+  description       String?
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+  sender            User?         @relation("PaymentSender", fields: [senderId], references: [id])
+  receiver          User?         @relation("PaymentReceiver", fields: [receiverId], references: [id])
+
+  @@map("payments")
+}
+
+enum PaymentType {
+  BOOKING
+  SPLIT_SHARE
+  MENTOR_SESSION
+  EQUIPMENT_RENTAL
+  SUBSCRIPTION
+}
+
+// ─── LEADERBOARD ──────────────────────────────────────────────────────────────
+
+model LeaderboardEntry {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  city          String
+  colony        String?
+  season        String
+  matchesPlayed Int      @default(0) @map("matches_played")
+  runsScored    Int      @default(0) @map("runs_scored")
+  wicketsTaken  Int      @default(0) @map("wickets_taken")
+  highScore     Int      @default(0) @map("high_score")
+  bestBowling   String?  @map("best_bowling")
+  battingAvg    Float    @default(0) @map("batting_avg")
+  bowlingEcon   Float    @default(0) @map("bowling_econ")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  user          User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, city, colony, season])
+  @@map("leaderboard_entries")
+}
+
+// ─── GAMIFICATION ─────────────────────────────────────────────────────────────
+
+model Badge {
+  id          String        @id @default(uuid())
+  key         String        @unique
+  name        String
+  nameHi      String        @map("name_hi")
+  description String
+  descHi      String        @map("desc_hi")
+  iconUrl     String        @map("icon_url")
+  category    BadgeCategory
+  players     PlayerBadge[]
+
+  @@map("badges")
+}
+
+enum BadgeCategory {
+  BATTING
+  BOWLING
+  FIELDING
+  RELIABILITY
+  MILESTONE
+  SOCIAL
+  GROUND
+}
+
+model PlayerBadge {
+  id       String    @id @default(uuid())
+  userId   String    @map("user_id")
+  badgeId  String    @map("badge_id")
+  earnedAt DateTime  @default(now()) @map("earned_at")
+  sharedAt DateTime? @map("shared_at")
+  user     User      @relation(fields: [userId], references: [id])
+  badge    Badge     @relation(fields: [badgeId], references: [id])
+
+  @@unique([userId, badgeId])
+  @@map("player_badges")
+}
+
+// ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  type      NotificationType
+  title     String
+  titleHi   String           @map("title_hi")
+  body      String
+  bodyHi    String           @map("body_hi")
+  data      Json?
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+  user      User             @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+enum NotificationType {
+  MATCH_APPLICATION
+  APPLICATION_ACCEPTED
+  APPLICATION_DECLINED
+  BOOKING_CONFIRMED
+  MATCH_REMINDER
+  WEATHER_ALERT
+  PAYMENT_REQUEST
+  PAYMENT_RECEIVED
+  BADGE_EARNED
+  CHALLENGE_RECEIVED
+  CHALLENGE_ACCEPTED
+}
+
+// ─── MENTOR SESSIONS ──────────────────────────────────────────────────────────
+
+model MentorSession {
+  id              String        @id @default(uuid())
+  mentorId        String        @map("mentor_id")
+  playerId        String        @map("player_id")
+  groundId        String?       @map("ground_id")
+  date            DateTime
+  durationMinutes Int           @default(60) @map("duration_minutes")
+  ratePerHour     Int           @map("rate_per_hour")
+  totalAmount     Int           @map("total_amount")
+  status          BookingStatus
+  razorpayOrderId String?       @unique @map("razorpay_order_id")
+  notes           String?
+  createdAt       DateTime      @default(now()) @map("created_at")
+  mentor          User          @relation("MentorSessions", fields: [mentorId], references: [id])
+  player          User          @relation("PlayerSessions", fields: [playerId], references: [id])
+
+  @@map("mentor_sessions")
+}
