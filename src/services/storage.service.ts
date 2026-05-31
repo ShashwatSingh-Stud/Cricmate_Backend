@@ -3,8 +3,12 @@ import { v4 as uuidv4 } from 'uuid';
 import logger from '../utils/logger';
 import { STORAGE_BUCKETS } from '../utils/constants';
 
+const supabaseUrl = process.env.SUPABASE_URL?.startsWith('http') 
+  ? process.env.SUPABASE_URL 
+  : 'http://placeholder.url';
+
 const supabase = createClient(
-  process.env.SUPABASE_URL || 'http://placeholder.url',
+  supabaseUrl,
   process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder_key'
 );
 

@@ -4,8 +4,12 @@ import { AuthenticatedRequest } from '../types';
 import { UnauthorizedError } from '../utils/errors';
 import { prisma } from '../server';
 
+const supabaseUrl = process.env.SUPABASE_URL?.startsWith('http') 
+  ? process.env.SUPABASE_URL 
+  : 'http://placeholder.url';
+
 const supabase = createClient(
-  process.env.SUPABASE_URL || 'http://placeholder.url',
+  supabaseUrl,
   process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder_key'
 );
 

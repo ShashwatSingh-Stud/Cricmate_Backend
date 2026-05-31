@@ -3,8 +3,12 @@ import { prisma } from '../server';
 import { NotificationType } from '@prisma/client';
 import logger from '../utils/logger';
 
+const sid = process.env.TWILIO_ACCOUNT_SID?.startsWith('AC')
+  ? process.env.TWILIO_ACCOUNT_SID
+  : 'ACmock123456789012345678901234567890';
+
 const client = twilio(
-  process.env.TWILIO_ACCOUNT_SID || 'mock_sid',
+  sid,
   process.env.TWILIO_AUTH_TOKEN || 'mock_token'
 );
 

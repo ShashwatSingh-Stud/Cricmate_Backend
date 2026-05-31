@@ -20,16 +20,20 @@ const PORT = parseInt(process.env.PORT || '3001', 10);
 
 async function main() {
   try {
-    // Connect to database
-    await prisma.$connect();
-    logger.info('✅ Database connected');
+    if (!process.env.DATABASE_URL || !process.env.DATABASE_URL.startsWith('postgres')) {
+      logger.warn('⚠️ DATABASE_URL is missing or invalid. App might not function correctly.');
+    } else {
+      // Connect to database
+      await prisma.$connect();
+      logger.info('✅ Database connected');
+    }
 
     // Initialize background cron jobs
     initCronJobs();
     logger.info('✅ Cron jobs initialized');
 
-    // Start HTTP server
-    const server = app.listen(PORT, () => {
+    // Start HTTP server (Bind to 0.0.0.0 for Render deployment)
+    const server = app.listen(PORT, '0.0.0.0', () => {
       logger.info(`🏏 CricMate API running on port ${PORT}`);
       logger.info(`   Environment: ${process.env.NODE_ENV || 'development'}`);
       logger.info(`   Health check: http://localhost:${PORT}/health`);
