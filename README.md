@@ -1,4 +1,4 @@
-<![CDATA[<div align="center">
+<div align="center">
 
 # 🏏 CricMate Backend
 
@@ -530,4 +530,4 @@ This project is private and proprietary. All rights reserved.
 **Built with ❤️ and 🏏 by the CricMate Team**
 
 </div>
-]]>
+
